@@ -1,1 +1,1 @@
-worker: python bot/main.py
+worker: python sponsorlaberty/main_sponsorlaberty.py
