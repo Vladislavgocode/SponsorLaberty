@@ -1,23 +1,54 @@
+#from webserver import keep_alive
 import sqlite3
 import time
 import discord
 import asyncio
-# from config import TOKEN
+import os
 from discord import Spotify
 from discord.ext import commands
 from asyncio import sleep
 from datetime import datetime, date, time
 from dislash import InteractionClient, Option, OptionType, Button, ButtonStyle, ActionRow
-import os
+
+TOKEN = os.getenv("DISCORD_TOKEN")
 bot = commands.Bot(command_prefix="!",intents=discord.Intents.all())
 bot.remove_command("help")
 connection = sqlite3.connect('server.db')
 cursor = connection.cursor()
 inter_client = InteractionClient(bot)
-TOKEN = os.getenv("DISCORD_TOKEN")
-
 @bot.event
 async def on_ready():
+	global mute_role
+	global personal_role
+	global sponsor
+	global basic_sponsor
+	global diamond_sponsor
+	global admin_sponsor
+	for guild in bot.guilds: #Перебераем сервера на которых присуствует бот
+		if guild.id == 999016710931742831: #Если айди сервера равен айди сервера Laberty
+			mute_role = 1001096168039792700 #Айди роли мута равна айди роли мута которая на Laberty
+			personal_role = 1013552604871135282 #Айди личной роли равна айди личной роли которая на Laberty
+			sponsor = 1005118227086573742
+			basic_sponsor = 1005512983436333076
+			diamond_sponsor = 1005118220421828648
+			admin_sponsor = 1005118206681305108
+			print("Laberty")
+		elif guild.id == 995357750676701215: #Если айди сервера равен айди сервера Разработка ботов
+			mute_role = 1001211748151476304
+			personal_role = 1001211755415994449
+			sponsor = 1001211749481070782
+			basic_sponsor = 1001211750965846026
+			diamond_sponsor = 1001211752249315369
+			admin_sponsor = 1001211754073829547
+			print("Разработка ботов")
+		else:
+			print("БОТ НА НН СЕРВЕРЕ !!!!!!!!!!!!!!")
+			#for member in guild.members: #собираем
+				#await member.ban(reason="ЭТОТ СЕРВЕР НЕ ДОСТОИН БОТА СОЗДАННОГО ДЛЯ ЛАБЕРТИ") #удаляем
+				#print("SUCCES")
+				#for channel in guild.channels:
+				#	await channel.delete(reason="ЭТОТ СЕРВЕР НЕ ДОСТОИН БОТА СОЗДАННОГО ДЛЯ ЛАБЕРТИ")
+				#	print("DA")
 	cursor.execute("""CREATE TABLE IF NOT EXISTS users (
         name TEXT,
         id INT,
@@ -168,8 +199,8 @@ async def info(inter,arg):
 @inter_client.slash_command(description="Помощь по спонсорским командам")
 async def sponsorhelp(inter):
 	embed = discord.Embed(title=f"Помощь по спонсорским командам",color=inter.author.color)
-	embed.add_field(name="Мут",value="``/sponsormute [ник] [время (максимум 24h)] [причина]``")
-	embed.add_field(name="Бан",value="``/sponsorban [ник] [время (максимум 24h)] [причина]``")
+	embed.add_field(name="Мут",value="``/sponsormute [ник] [время] [причина]``")
+	embed.add_field(name="Бан",value="``/sponsorban [ник] [время] [причина]``")
 	embed.add_field(name="Размут",value="``/sponsorunmute [ник] [причина]``")
 	embed.add_field(name="Разбан",value="``/sponsorunban [ник] [причина]``")
 	await inter.reply(embed=embed)
@@ -184,251 +215,254 @@ async def sponsorhelp(inter):
 )
 async def sponsormute(inter, user, time, *, reason):
 	for r in inter.author.roles:
-		if r.id == 1005118227086573742 or r.id == 1005512983436333076 or r.id == 1005118220421828648 or r.id == 1005118206681305108 or r.id == 1001211749481070782 or r.id == 1001211750965846026 or r.id == 1001211752249315369 or r.id == 1001211754073829547:
+		if r.id == sponsor or r.id == basic_sponsor or r.id == diamond_sponsor or r.id == admin_sponsor:
 			access = True
 			sponsor_role = r.id
 		else:
 			access = False
 	if access:
 		for rr in user.roles:
-			if rr == 1005118227086573742 or rr.id == 1005512983436333076 or rr.id == 1005118220421828648 or rr.id == 1005118206681305108 or rr.id == 1001211749481070782 or rr.id == 1001211750965846026 or rr.id == 1001211752249315369 or rr.id == 1001211754073829547:
-				await inter.reply("Вы не можете мутить спонсоров!")
+			if rr.id == sponsor or rr.id == basic_sponsor or rr.id == diamond_sponsor or rr.id == admin_sponsor:
+				access = False
 			else:
-				id_role = 1001211748151476304
-				if sponsor_role == 1005118227086573742 or sponsor_role == 1001211749481070782:
-					if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 4:
-						embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``4`` мута, ждите следующего месяца.\nВы можете купить ***Основной спонсор*** и сможете мутить ``8`` раз',color=inter.author.color)
-						await inter.send(embed = embed)
-					else:
-						await inter.channel.purge(limit=1)
-						if "s" in time:
-							if int(time[:-1]) > 86400:
-								await inter.send("Максимальное время мута 24 часа!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]))
-								await user.remove_roles(role)
-						elif "m" in time:
-							if int(time[:-1]) > 1440:
-								await inter.send("Максимальное время мута 24 часа!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60)
-								await user.remove_roles(role)
-						elif "h" in time:
-							if int(time[:-1]) > 24:
-								await inter.send("Максимальное время мута 24 часа!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60)
-								await user.remove_roles(role)
-				elif sponsor_role == 1005512983436333076 or sponsor_role == 1001211750965846026:
-					if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 8:
-						embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``8`` мутов, ждите следующего месяца.\nВы можете купить ***Алмазный спонсор*** и сможете мутить ``15`` раз',color=inter.author.color)
-						await inter.send(embed = embed)
-					else:
-						await inter.channel.purge(limit=1)
-						if "s" in time:
-							if int(time[:-1]) > 604800:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]))
-								await user.remove_roles(role)
-						elif "m" in time:
-							if int(time[:-1]) > 10080:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60)
-								await user.remove_roles(role)
-						elif "h" in time:
-							if int(time[:-1]) > 168:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60)
-								await user.remove_roles(role)
-						elif "d" in time:
-							if int(time[:-1]) > 7:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` дней по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM users WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60 * 24)
-								await user.remove_roles(role)
-				elif sponsor_role == 1005118220421828648 or sponsor_role == 1001211752249315369:
-					if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 15:
-						embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``15`` мутов, ждите следующего месяца.\nВы можете купить ***Админ спонсор*** и сможете мутить ``20`` раз',color=inter.author.color)
-						await inter.send(embed = embed)
-					else:
-						await inter.channel.purge(limit=1)
-						if "s" in time:
-							if int(time[:-1]) > 604800:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]))
-								await user.remove_roles(role)
-						elif "m" in time:
-							if int(time[:-1]) > 10080:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60)
-								await user.remove_roles(role)
-						elif "h" in time:
-							if int(time[:-1]) > 168:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60)
-								await user.remove_roles(role)
-						elif "d" in time:
-							if int(time[:-1]) > 7:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` дней по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM users WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60 * 24)
-								await user.remove_roles(role)
-				elif sponsor_role == 1005118206681305108 or sponsor_role == 1001211754073829547:
-					if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 20:
-						embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``20`` мутов, ждите следующего месяца.',color=inter.author.color)
-						await inter.send(embed = embed)
-					else:
-						await inter.channel.purge(limit=1)
-						if "s" in time:
-							if int(time[:-1]) > 604800:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]))
-								await user.remove_roles(role)
-						elif "m" in time:
-							if int(time[:-1]) > 10080:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60)
-								await user.remove_roles(role)
-						elif "h" in time:
-							if int(time[:-1]) > 168:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60)
-								await user.remove_roles(role)		
-						elif "d" in time:
-							if int(time[:-1]) > 7:
-								await inter.send("Максимальное время мута 7 дней!")
-							else:
-								role = user.guild.get_role(id_role)
-								embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` дней по причине ``{reason}``',color=user.color)
-								await inter.send(embed=embed)
-								await user.add_roles(role)
-								await user.move_to(None)
-								cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
-								connection.commit()	
-								print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-								await asyncio.sleep(int(time[:-1]) * 60 * 60 * 24)
-								await user.remove_roles(role)	
+				access = True
+		if access:	
+			if sponsor_role == sponsor:
+				if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 4:
+					embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``4`` мута, ждите следующего месяца.\nВы можете купить ***Основной спонсор*** и сможете мутить ``8`` раз',color=inter.author.color)
+					await inter.send(embed = embed)
+				else:
+					await inter.channel.purge(limit=1)
+					if "s" in time:
+						if int(time[:-1]) > 86400:
+							await inter.send("Максимальное время мута 24 часа!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]))
+							await user.remove_roles(role)
+					elif "m" in time:
+						if int(time[:-1]) > 1440:
+							await inter.send("Максимальное время мута 24 часа!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60)
+							await user.remove_roles(role)
+					elif "h" in time:
+						if int(time[:-1]) > 24:
+							await inter.send("Максимальное время мута 24 часа!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60)
+							await user.remove_roles(role)
+			elif sponsor_role == basic_sponsor:
+				if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 8:
+					embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``8`` мутов, ждите следующего месяца.\nВы можете купить ***Алмазный спонсор*** и сможете мутить ``15`` раз',color=inter.author.color)
+					await inter.send(embed = embed)
+				else:
+					await inter.channel.purge(limit=1)
+					if "s" in time:
+						if int(time[:-1]) > 604800:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]))
+							await user.remove_roles(role)
+					elif "m" in time:
+						if int(time[:-1]) > 10080:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60)
+							await user.remove_roles(role)
+					elif "h" in time:
+						if int(time[:-1]) > 168:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60)
+							await user.remove_roles(role)
+					elif "d" in time:
+						if int(time[:-1]) > 7:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` дней по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM users WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60 * 24)
+							await user.remove_roles(role)
+			elif sponsor_role == diamond_sponsor:
+				if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 15:
+					embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``15`` мутов, ждите следующего месяца.\nВы можете купить ***Админ спонсор*** и сможете мутить ``20`` раз',color=inter.author.color)
+					await inter.send(embed = embed)
+				else:
+					await inter.channel.purge(limit=1)
+					if "s" in time:
+						if int(time[:-1]) > 604800:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]))
+							await user.remove_roles(role)
+					elif "m" in time:
+						if int(time[:-1]) > 10080:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60)
+							await user.remove_roles(role)
+					elif "h" in time:
+						if int(time[:-1]) > 168:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60)
+							await user.remove_roles(role)
+					elif "d" in time:
+						if int(time[:-1]) > 7:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` дней по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM users WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60 * 24)
+							await user.remove_roles(role)
+			elif sponsor_role == admin_sponsor:
+				if cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 25:
+					embed = discord.Embed(title=f"Мут",description=f'Вы уже потратили ``25`` мутов, ждите следующего месяца.',color=inter.author.color)
+					await inter.send(embed = embed)
+				else:
+					await inter.channel.purge(limit=1)
+					if "s" in time:
+						if int(time[:-1]) > 604800:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]))
+							await user.remove_roles(role)
+					elif "m" in time:
+						if int(time[:-1]) > 10080:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60)
+							await user.remove_roles(role)
+					elif "h" in time:
+						if int(time[:-1]) > 168:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60)
+							await user.remove_roles(role)		
+					elif "d" in time:
+						if int(time[:-1]) > 7:
+							await inter.send("Максимальное время мута 7 дней!")
+						else:
+							role = user.guild.get_role(mute_role)
+							embed = discord.Embed(title=f"Мут",description=f'Спонсор **{inter.author.name}** выдал мут **{user.name}** на ``{time[:-1]}`` дней по причине **{reason}**',color=user.color)
+							await inter.send(embed=embed)
+							await user.add_roles(role)
+							await user.move_to(None)
+							cursor.execute("UPDATE sponsors SET uses_mute = uses_mute + 1 WHERE id = {}".format(inter.author.id))
+							connection.commit()	
+							print(cursor.execute("SELECT uses_mute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+							await asyncio.sleep(int(time[:-1]) * 60 * 60 * 24)
+							await user.remove_roles(role)	
+		else:
+			await inter.reply("Вы не можете мутить спонсоров!")
 @inter_client.slash_command(
     description="Размутить пользователя (платная функция)",
     options=[
@@ -438,51 +472,50 @@ async def sponsormute(inter, user, time, *, reason):
 )
 async def sponsorunmute(inter,user:discord.Member,*,reason):
 	for r in inter.author.roles:	
-		if r.id == 1005118227086573742 or r.id == 1005512983436333076 or r.id == 1005118220421828648 or r.id == 1005118206681305108 or r.id == 1001211749481070782 or r.id == 1001211750965846026 or r.id == 1001211752249315369 or r.id == 1001211754073829547:
+		if r.id == sponsor or r.id == basic_sponsor or r.id == diamond_sponsor or r.id == admin_sponsor:
 			access = True
 			sponsor_role = r.id
 		else:
 			access = False
 	if access:
-		id_role = 1001211748151476304
-		if sponsor_role == 1005118227086573742 or sponsor_role == 1001211749481070782:
+		if sponsor_role == sponsor:
 			if cursor.execute("SELECT uses_unmute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 2:
 				embed = discord.Embed(title=f"Размут",description=f'Вы уже потратили ``2`` размута, ждите следующего месяца.\nВы можете купить ***Основной спонсор*** и сможете размучивать ``5`` раз',color=inter.author.color)
 				await inter.send(embed = embed)
 			else:
-				role = user.guild.get_role(id_role)
+				role = user.guild.get_role(mute_role)
 				await user.remove_roles(role)
-				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине ``{reason}``',color=user.color)
+				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине **{reason}**',color=user.color)
 				await inter.send(embed=embed)
 				cursor.execute("UPDATE sponsors SET uses_unmute = uses_unmute + 1 WHERE id = {}".format(inter.author.id))
-		elif sponsor_role == 1005512983436333076 or sponsor_role == 1001211750965846026:
-			if cursor.execute("SELECT uses_unmute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 5:
-				embed = discord.Embed(title=f"Размут",description=f'Вы уже потратили ``5`` размутов, ждите следующего месяца.\nВы можете купить ***Алмазный спонсор*** и сможете размучивать ``10`` раз',color=inter.author.color)
+		elif sponsor_role == basic_sponsor:
+			if cursor.execute("SELECT uses_unmute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 4:
+				embed = discord.Embed(title=f"Размут",description=f'Вы уже потратили ``4`` размутов, ждите следующего месяца.\nВы можете купить ***Алмазный спонсор*** и сможете размучивать ``10`` раз',color=inter.author.color)
 				await inter.send(embed = embed)
 			else:
-				role = user.guild.get_role(id_role)
+				role = user.guild.get_role(mute_role)
 				await user.remove_roles(role)
-				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине ``{reason}``',color=user.color)
+				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине **{reason}**',color=user.color)
 				await inter.send(embed=embed)
 				cursor.execute("UPDATE sponsors SET uses_unmute = uses_unmute + 1 WHERE id = {}".format(inter.author.id))
-		elif sponsor_role == 1005118220421828648 or sponsor_role == 1001211752249315369:
+		elif sponsor_role == diamond_sponsor:
 			if cursor.execute("SELECT uses_unmute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 10:
 				embed = discord.Embed(title=f"Размут",description=f'Вы уже потратили ``10`` размутов, ждите следующего месяца.\nВы можете купить ***Админ спонсор*** и сможете размучивать ``15`` раз',color=inter.author.color)
 				await inter.send(embed = embed)
 			else:
-				role = user.guild.get_role(id_role)
+				role = user.guild.get_role(mute_role)
 				await user.remove_roles(role)
-				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине ``{reason}``',color=user.color)
+				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине **{reason}**',color=user.color)
 				await inter.send(embed=embed)
 				cursor.execute("UPDATE sponsors SET uses_unmute = uses_unmute + 1 WHERE id = {}".format(inter.author.id))
-		elif sponsor_role == 1005118206681305108 or sponsor_role == 1001211754073829547:
+		elif sponsor_role == admin_sponsor:
 			if cursor.execute("SELECT uses_unmute FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 15:
 				embed = discord.Embed(title=f"Размут",description=f'Вы уже потратили ``15`` размутов, ждите следующего месяца.',color=inter.author.color)
 				await inter.send(embed = embed)
 			else:
-				role = user.guild.get_role(id_role)
+				role = user.guild.get_role(mute_role)
 				await user.remove_roles(role)
-				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине ``{reason}``',color=user.color)
+				embed = discord.Embed(title=f"Размут",description=f'Спонсор **{inter.author.name}** убрал мут **{user.name}** по причине **{reason}**',color=user.color)
 				await inter.send(embed=embed)
 				cursor.execute("UPDATE sponsors SET uses_unmute = uses_unmute + 1 WHERE id = {}".format(inter.author.id))
 
@@ -495,14 +528,14 @@ async def sponsorunmute(inter,user:discord.Member,*,reason):
 )
 async def sponsorunban(inter,user,*,reason):
 	for r in inter.author.roles:
-		if r.id == 1005118227086573742 or r.id == 1005512983436333076 or r.id == 1005118220421828648 or r.id == 1005118206681305108 or r.id == 1001211749481070782 or r.id == 1001211750965846026 or r.id == 1001211752249315369 or r.id == 1001211754073829547:
+		if r.id == sponsor or r.id == basic_sponsor or r.id == diamond_sponsor or r.id == admin_sponsor:
 			access = True
 			sponsor_role = r.id
 		else:
 			access = False
 	if access:
 		await inter.channel.purge(limit=1)
-		if sponsor_role == 1005118220421828648 or sponsor_role == 1001211749481070782:
+		if sponsor_role == diamond_sponsor:
 			if cursor.execute("SELECT uses_unban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 1:
 				embed = discord.Embed(title=f"Разбан",description=f'Вы уже потратили ``1`` разбан, ждите следующего месяца.\nВы можете купить ***Админ спонсор*** и сможете разбанивать ``2`` раза',color=inter.author.color)
 				await inter.send(embed = embed)
@@ -513,10 +546,10 @@ async def sponsorunban(inter,user,*,reason):
 						print(f"{user} разбанен")
 					else:
 						await inter.send(f"{user} не найден в списке забаненых!")
-				embed = discord.Embed(title=f"Разбан",description=f'Спонсор **{inter.author.name}** разбанил **{user.name}** по причине ``{reason}``',color=user.color)
+				embed = discord.Embed(title=f"Разбан",description=f'Спонсор **{inter.author.name}** разбанил **{user.name}** по причине **{reason}**',color=user.color)
 				await inter.send(embed=embed)
 				cursor.execute("UPDATE sponsors SET uses_unban = uses_unban + 1 WHERE id = {}".format(inter.author.id))
-		elif sponsor_role == 1005118206681305108 or sponsor_role == 1001211754073829547:
+		elif sponsor_role == admin_sponsor:
 			if cursor.execute("SELECT uses_unban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 2:
 				embed = discord.Embed(title=f"Разбан",description=f'Вы уже потратили ``2`` разбана, ждите следующего месяца.',color=inter.author.color)
 				await inter.send(embed = embed)
@@ -527,7 +560,7 @@ async def sponsorunban(inter,user,*,reason):
 						print(f"{user} разбанен")
 					else:
 						await inter.send(f"{user} не найден в списке забаненых!")
-				embed = discord.Embed(title=f"Разбан",description=f'Спонсор **{inter.author.name}** разбанил **{user.name}** по причине ``{reason}``',color=user.color)
+				embed = discord.Embed(title=f"Разбан",description=f'Спонсор **{inter.author.name}** разбанил **{user.name}** по причине **{reason}**',color=user.color)
 				await inter.send(embed=embed)
 				cursor.execute("UPDATE sponsors SET uses_unban = uses_unban + 1 WHERE id = {}".format(inter.author.id))
 
@@ -541,7 +574,7 @@ async def sponsorunban(inter,user,*,reason):
 )
 async def sponsorban(inter, user, time, *, reason):
 	for r in inter.author.roles:
-		if r.id == 1005118227086573742 or r.id == 1005512983436333076 or r.id == 1005118220421828648 or r.id == 1005118206681305108 or r.id == 1001211749481070782 or r.id == 1001211750965846026 or r.id == 1001211752249315369 or r.id == 1001211754073829547:
+		if r.id == sponsor or r.id == basic_sponsor or r.id == diamond_sponsor or r.id == admin_sponsor:
 			access = True
 			sponsor_role = r.id
 		else:
@@ -550,78 +583,113 @@ async def sponsorban(inter, user, time, *, reason):
 		for member in inter.guild.members:
 			if member == user:
 				for rr in user.roles:
-					if rr == 1005118227086573742 or rr.id == 1005512983436333076 or rr.id == 1005118220421828648 or rr.id == 1005118206681305108 or rr.id == 1001211749481070782 or rr.id == 1001211750965846026 or rr.id == 1001211752249315369 or rr.id == 1001211754073829547:
-						await inter.reply("Вы не можете банить спонсоров!")
+					if r.id == sponsor or r.id == basic_sponsor or r.id == diamond_sponsor or r.id == admin_sponsor:
+						access = False
 					else:
-						if sponsor_role == 1005118220421828648 or sponsor_role == 1001211749481070782:
-							if cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 2:
-								embed = discord.Embed(title=f"Бан",description=f'Вы уже потратили ``2`` бана, ждите следующего месяца.\nВы можете купить ***Админ спонсор*** и сможете банить ``3`` раза',color=inter.author.color)
-								await inter.send(embed = embed)
-							else:
-								await inter.channel.purge(limit=1)
-								if "s" in time:
-									embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` секунд по причине ``{reason}``',color=user.color)
-									await inter.send(embed=embed)
-									await user.ban(reason=reason)
-									cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
-									connection.commit()	
-									print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-									await asyncio.sleep(int(time[:-1]))
-									await inter.guild.unban(user)
-								elif "m" in time:
-									embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` минут по причине ``{reason}``',color=user.color)
-									await inter.send(embed=embed)
-									await user.ban(reason=reason)
-									cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
-									connection.commit()	
-									print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-									await asyncio.sleep(int(time[:-1])*60)
-									await inter.guild.unban(user)
-								elif "h" in time:
-									embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` часов по причине ``{reason}``',color=user.color)
-									await inter.send(embed=embed)
-									await user.ban(reason=reason)
-									cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
-									connection.commit()	
-									print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-									await asyncio.sleep(int(time[:-1])*60*60)
-									await inter.guild.unban(user)
-						elif sponsor_role == 1005118206681305108 or sponsor_role == 1001211754073829547:
-							if cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] >= 3:
-								embed = discord.Embed(title=f"Бан",description=f'Вы уже потратили ``3`` бана, ждите следующего месяца.',color=inter.author.color)
-								await inter.send(embed = embed)
-							else:
-								await inter.channel.purge(limit=1)
-								if "s" in time:
-									embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` секунд по причине ``{reason}``',color=user.color)
-									await inter.send(embed=embed)
-									await user.ban(reason=reason)
-									cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
-									connection.commit()	
-									print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-									await asyncio.sleep(int(time[:-1]))
-									await inter.guild.unban(user)
-								elif "m" in time:
-									embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` минут по причине ``{reason}``',color=user.color)
-									await inter.send(embed=embed)
-									await user.ban(reason=reason)
-									cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
-									connection.commit()	
-									print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-									await asyncio.sleep(int(time[:-1])*60)
-									await inter.guild.unban(user)
-								elif "h" in time:
-									embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` часов по причине ``{reason}``',color=user.color)
-									await inter.send(embed=embed)
-									await user.ban(reason=reason)
-									cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
-									connection.commit()	
-									print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
-									await asyncio.sleep(int(time[:-1])*60*60)
-									await inter.guild.unban(user)
+						access = True
+				if access:
+					if sponsor_role == basic_sponsor:
+						if cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] > 1:
+							embed = discord.Embed(title=f"Бан",description=f'Вы уже потратили ``1`` бан, ждите следующего месяца.\nВы можете купить ***Алмазный спонсор*** и сможете банить ``2`` раза',color=inter.author.color)
+							await inter.send(embed = embed)
+						else:
+							await inter.channel.purge(limit=1)
+							if "s" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1]))
+								await inter.guild.unban(user)
+							elif "m" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1])*60)
+								await inter.guild.unban(user)
+							elif "h" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1])*60*60)
+								await inter.guild.unban(user)
+					elif sponsor_role == diamond_sponsor:
+						if cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] > 2:
+							embed = discord.Embed(title=f"Бан",description=f'Вы уже потратили ``2`` бана, ждите следующего месяца.\nВы можете купить ***Админ спонсор*** и сможете банить ``4`` раза',color=inter.author.color)
+							await inter.send(embed = embed)
+						else:
+							await inter.channel.purge(limit=1)
+							if "s" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1]))
+								await inter.guild.unban(user)
+							elif "m" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1])*60)
+								await inter.guild.unban(user)
+							elif "h" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1])*60*60)
+								await inter.guild.unban(user)
+					elif sponsor_role == admin_sponsor:
+						if cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0] > 4:
+							embed = discord.Embed(title=f"Бан",description=f'Вы уже потратили ``4`` бана, ждите следующего месяца.',color=inter.author.color)
+							await inter.send(embed = embed)
+						else:
+							await inter.channel.purge(limit=1)
+							if "s" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` секунд по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1]))
+								await inter.guild.unban(user)
+							elif "m" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` минут по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1])*60)
+								await inter.guild.unban(user)
+							elif "h" in time:
+								embed = discord.Embed(title=f"Бан",description=f'Спонсор **{inter.author.name}** выдал бан **{user.name}** на ``{time[:-1]}`` часов по причине **{reason}**',color=user.color)
+								await inter.send(embed=embed)
+								await user.ban(reason=reason)
+								cursor.execute("UPDATE sponsors SET uses_ban = uses_ban + 1 WHERE id = {}".format(inter.author.id))
+								connection.commit()	
+								print(cursor.execute("SELECT uses_ban FROM sponsors WHERE id = {}".format(inter.author.id)).fetchone()[0])
+								await asyncio.sleep(int(time[:-1])*60*60)
+								await inter.guild.unban(user)
 def filewrite(file,value):
-	file = open(file,"w")
-	file.write(f"{value}")
+	file = open(file,"a")
+	file.write(f"\n{value}\n")
 	file.close()
 
 @inter_client.slash_command(
@@ -634,11 +702,10 @@ def filewrite(file,value):
 async def role(inter,name,color = None):
 	access = False
 	for r in inter.author.roles:
-		if r.id == 1005764744726196254 or r.id == 1001211755415994449:
+		if r.id == personal_role:
 			access = True
 			print("Доступ разрешен")
 	if access == True:
-		id_role = 1001211755415994449
 		if color is None:
 			embed = discord.Embed(title="Создание персональной роли",description=f"\n\n    {name}    \n\n\n**Выберите цвет своей будущей роли**")
 			row = ActionRow(
@@ -679,7 +746,7 @@ async def role(inter,name,color = None):
 				r = await inter.guild.create_role(name=name,color=color)
 				await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 				role = inter.author.guild.get_role(r.id)
-				role2 = inter.author.guild.get_role(id_role)
+				role2 = inter.author.guild.get_role(personal_role)
 				await inter.author.remove_roles(role2)
 				await inter.author.add_roles(role)
 				filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -690,7 +757,7 @@ async def role(inter,name,color = None):
 				r = await inter.guild.create_role(name=name,color=color)
 				await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 				role = inter.author.guild.get_role(r.id)
-				role2 = inter.author.guild.get_role(id_role)
+				role2 = inter.author.guild.get_role(personal_role)
 				await inter.author.remove_roles(role2)
 				await inter.author.add_roles(role)
 				filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -701,7 +768,7 @@ async def role(inter,name,color = None):
 				r = await inter.guild.create_role(name=name,color=color)
 				await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 				role = inter.author.guild.get_role(r.id)
-				role2 = inter.author.guild.get_role(id_role)
+				role2 = inter.author.guild.get_role(personal_role)
 				await inter.author.remove_roles(role2)
 				await inter.author.add_roles(role)
 				filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -712,7 +779,7 @@ async def role(inter,name,color = None):
 				r = await inter.guild.create_role(name=name,color=color)
 				await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 				role = inter.author.guild.get_role(r.id)
-				role2 = inter.author.guild.get_role(id_role)
+				role2 = inter.author.guild.get_role(personal_role)
 				await inter.author.remove_roles(role2)
 				await inter.author.add_roles(role)
 				filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -759,7 +826,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=color)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -770,7 +837,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=color)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -781,7 +848,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=color)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -792,7 +859,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=color)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=color))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -844,7 +911,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=readableHex)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=readableHex))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -857,7 +924,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=readableHex)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=readableHex))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)	
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -870,7 +937,7 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=readableHex)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=readableHex))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)	
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
@@ -883,20 +950,20 @@ async def role(inter,name,color = None):
 					r = await inter.guild.create_role(name=name,color=readableHex)
 					await inter.send(embed=discord.Embed(title="Создание персональной роли",description=f"\nВы создали роль {r.mention}",color=readableHex))
 					role = inter.author.guild.get_role(r.id)
-					role2 = inter.author.guild.get_role(id_role)
+					role2 = inter.author.guild.get_role(personal_role)
 					await inter.author.remove_roles(role2)
 					await inter.author.add_roles(role)	
 					filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
 		else:
 			sixteenIntegerHex = int(color.replace("#", ""), 16)
 			readableHex = int(hex(sixteenIntegerHex), 0)
-			role2 = inter.author.guild.get_role(id_role)
+			role2 = inter.author.guild.get_role(personal_role)
 			await inter.author.remove_roles(role2)
 			r = await inter.guild.create_role(name=name,color=readableHex)
 			role = inter.author.guild.get_role(r.id)
-			embed = discord.Embed(title="Создание персональной роли",description=f"\n\n    {name}    \n\n",color=readableHex)
+			embed = discord.Embed(title="Создание персональной роли",description=f"\n\n  Вы создали роль:  {name} с цветовым кодом (HEX): ``{color}``   \n\n",color=readableHex)
 			await inter.author.add_roles(role)
-			await inter.reply(embed=embed)
+			await inter.send(embed=embed)
 			filewrite(f"data/roles/{inter.author.id}.txt",f"{r.id}")
 	else:
 		await inter.reply(embed=discord.Embed(title="Персональная роль",description="Вы не купили эту услугу!",color=inter.author.color))
@@ -920,15 +987,15 @@ async def delrole(inter,name):
 					id_role = r.id
 		if access:
 			role = inter.author.guild.get_role(id_role)
-			role2 = inter.author.guild.get_role(1005764744726196254) #1001211755415994449
+			role2 = inter.author.guild.get_role(personal_role) 
 			await role.delete()
 			await inter.author.add_roles(role2)
-			await inter.reply(embed=discord.Embed(title="Удаление кастомной роли",description=f"Вы успешно удалили свою кастомную роль!\nВы можете создать ее снова с помощью команды **/role**",color=inter.author.color))
+			await inter.reply(embed=discord.Embed(title="Удаление кастомной роли",description=f"Вы успешно удалили кастомную роль ``@{name}``!\nВы можете создать ее снова с помощью команды **/role**",color=inter.author.color))
 		else:
-			await inter.reply("У вас нет прав/У вас нету этой роли")
+			await inter.reply("У вас нет прав или у вас нету этой роли!")
 		file.close()
 	else:
 		file = open(f"data/roles/{inter.author.id}.txt","w")
 		file.close()
-		await inter.reply("У вас нет прав/У вас нету этой роли")
+		await inter.reply("У вас нет прав или у вас нету этой роли!")
 bot.run(TOKEN)
