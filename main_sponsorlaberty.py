@@ -119,59 +119,104 @@ async def on_member_join(member):
 @inter_client.slash_command(
     description="Посмотреть информацию",
     options=[
-        Option("arg", "Введите о чем хотите посмотреть информацию",required=True)
+        Option("arg", "Введите о чем хотите посмотреть информацию",required=True),
+	    Option("user", "Введите пользователя",OptionType.USER,required=False)
     ]
 )
-async def info(inter,arg):
+async def info(inter,arg,user=None):
 	if arg == "user":
-		file = open(f"data/{inter.author.id}.txt","w")
-		embed = discord.Embed(title=f":green_circle: Информация о {inter.author}",color=inter.author.color)
-		embed.add_field(name="Полное имя",value=f"{inter.author}")
-		embed.add_field(name="ID пользователя",value=f"{inter.author.id}")
-		embed.add_field(name="Присоединился к серверу",value=f"""{inter.author.joined_at.strftime("%d.%m.%y")}""")
-		embed.add_field(name="Аккаунт создан",value=f"""{inter.author.created_at.strftime("%d.%m.%y")}""")
-		embed.add_field(name="Отображаемый цвет",value=f"{inter.author.color}")
-		for role in inter.author.roles:
-			if "everyone" in f"{role}":
+		if user is None:
+			file = open(f"data/{inter.author.id}.txt","w")
+			embed = discord.Embed(title=f":green_circle: Информация о {inter.author}",color=inter.author.color)
+			embed.add_field(name="Полное имя",value=f"{inter.author}")
+			embed.add_field(name="ID пользователя",value=f"{inter.author.id}")
+			embed.add_field(name="Присоединился к серверу",value=f"""{inter.author.joined_at.strftime("%d.%m.%y")}""")
+			embed.add_field(name="Аккаунт создан",value=f"""{inter.author.created_at.strftime("%d.%m.%y")}""")
+			embed.add_field(name="Отображаемый цвет",value=f"{inter.author.color}")
+			for role in inter.author.roles:
+				if "everyone" in f"{role}":
+					pass
+				else:
+					if role is None:
+						file.write("Отсуствует")
+					else:
+						file.write(f" {role.mention} ")
+					
+			file.close()
+			file = open(f"data/{inter.author.id}.txt","r")
+			roles = file.read()
+			activities = []
+			for activity in inter.author.activities:
+				if isinstance(activity, discord.CustomActivity):
+					activities.append("**Custom Status**")
+				if isinstance(activity, Spotify):
+					activities.append("**Слушает** ***Spotify***")
+			if roles == '':
+				roles = "Отсуствует"
+			else:
+				roles = roles
+			embed.add_field(name=f"Ролей ({len(inter.author.roles)-1})",value=f"{roles}")
+			if len(inter.author.activities) == 0:
 				pass
 			else:
-				if role is None:
-					file.write("Отсуствует")
+				if len(activities) == 2:
+					a = f"{activities[0]}\n{activities[1]}"
 				else:
-					file.write(f" {role.mention} ")
-				
-		file.close()
-		file = open(f"data/{inter.author.id}.txt","r")
-		roles = file.read()
-		activities = []
-		for activity in inter.author.activities:
-			if isinstance(activity, discord.CustomActivity):
-				activities.append("**Custom Status**")
-			if isinstance(activity, Spotify):
-				activities.append("**Слушает** ***Spotify***")
-		if roles == '':
-			roles = "Отсуствует"
+					a = activities[0]
+				embed.add_field(name=f"Активности ({len(inter.author.activities)})",value=f"{a}")
+			embed.set_thumbnail(url=inter.author.avatar_url)
+			await inter.reply(embed=embed)
 		else:
-			roles = roles
-		embed.add_field(name=f"Ролей ({len(inter.author.roles)-1})",value=f"{roles}")
-		if len(inter.author.activities) == 0:
-			pass
-		else:
-			if len(activities) == 2:
-				a = f"{activities[0]}\n{activities[1]}"
+			file = open(f"data/{user.id}.txt","w")
+			embed = discord.Embed(title=f":green_circle: Информация о {user}",color=user.color)
+			embed.add_field(name="Полное имя",value=f"{user}")
+			embed.add_field(name="ID пользователя",value=f"{user.id}")
+			embed.add_field(name="Присоединился к серверу",value=f"""{user.joined_at.strftime("%d.%m.%y")}""")
+			embed.add_field(name="Аккаунт создан",value=f"""{user.created_at.strftime("%d.%m.%y")}""")
+			embed.add_field(name="Отображаемый цвет",value=f"{user.color}")
+			for role in user.roles:
+				if "everyone" in f"{role}":
+					pass
+				else:
+					if role is None:
+						file.write("Отсуствует")
+					else:
+						file.write(f" {role.mention} ")
+					
+			file.close()
+			file = open(f"data/{user.id}.txt","r")
+			roles = file.read()
+			activities = []
+			for activity in user.activities:
+				if isinstance(activity, discord.CustomActivity):
+					activities.append("**Custom Status**")
+				if isinstance(activity, Spotify):
+					activities.append("**Слушает** ***Spotify***")
+			if roles == '':
+				roles = "Отсуствует"
 			else:
-				a = activities[0]
-			embed.add_field(name=f"Активности ({len(inter.author.activities)})",value=f"{a}")
-		embed.set_thumbnail(url=inter.author.avatar_url)
-		await inter.reply(embed=embed)
-
+				roles = roles
+			embed.add_field(name=f"Ролей ({len(user.roles)-1})",value=f"{roles}")
+			if len(user.activities) == 0:
+				pass
+			else:
+				if len(activities) == 2:
+					a = f"{activities[0]}\n{activities[1]}"
+				else:
+					a = activities[0]
+				embed.add_field(name=f"Активности ({len(user.activities)})",value=f"{a}")
+			embed.set_thumbnail(url=user.avatar_url)
+			await inter.reply(embed=embed)
 @inter_client.slash_command(description="Помощь по спонсорским командам")
 async def sponsorhelp(inter):
-	embed = discord.Embed(title=f"Помощь по спонсорским командам",color=inter.author.color)
+	embed = discord.Embed(title=f"Помощь по командам",color=inter.author.color)
 	embed.add_field(name="Мут",value="``/sponsormute [ник] [время (максимум 24h)] [причина]``")
 	embed.add_field(name="Бан",value="``/sponsorban [ник] [время (максимум 24h)] [причина]``")
 	embed.add_field(name="Размут",value="``/sponsorunmute [ник] [причина]``")
 	embed.add_field(name="Разбан",value="``/sponsorunban [ник] [причина]``")
+	embed.add_field(name="Создать персональную роль",value="``/role [название роли] [Цвет в HEX формате (необязательно)]``")
+	embed.add_field(name="Удалить персональную роль",value="``/delrole [название роли]``")
+	embed.add_field(name="Информация о пользователе",value="``/info user [ник (необязательно)]``")
 	await inter.reply(embed=embed)
 
 @inter_client.slash_command(
