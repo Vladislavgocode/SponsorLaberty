@@ -99,8 +99,8 @@ async def on_ready():
 async def on_ready():
     channel = bot.get_channel(1019150040335400962)
     while True:
-        asyncio.sleep(10)
-        embed=discord.Embed(title=f"Внимание Стафф <@999016710990479480>,<@&999016710973689943> ,<@&999016710973689944>,<@&999016710973689942>, !!!", description="Используйте Команду: ``/up или /bump``", color=0x73d216)
+        await asyncio.sleep(10)
+        embed=discord.Embed(title=f"Внимание Стафф <@999016710990479480>,<@&999016710973689943> ,<@&999016710973689944>,<@&999016710973689942>, !!!", description="Используйте Команду: ``/up и /bump``", color=0x73d216)
         await channel.send(embed=embed)
 
 @bot.event 
