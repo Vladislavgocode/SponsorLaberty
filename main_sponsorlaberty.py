@@ -1081,21 +1081,4 @@ async def delrole(inter,name):
 		file.close()
 		await inter.reply("У вас нет прав или у вас нету этой роли!")
 
-@inter_client.slash_command(
-    description="Сообщить разработчику о ошибке/баге",
-    options=[
-        Option("message", "Введите название роли которую хотите удалить",required=True)
-    ]
-)
-async def bug(inter,*,message):
-	dev = bot.get_user(890649916135833600)
-	await dev.send(f"Вам пришло сообщение о баге бота:\n ```{message}```\n **От** ***{inter.author}***")
-	await dev.send(inter.author.id)
-	await inter.reply("📨 *Сообщение отправлено*")
-
-@bot.command()
-async def reply(ctx,member:int,*,message):
-	user = bot.get_user(member)
-	await user.send(f"Разработчик бота **Laberty** ответил вам на ваше сообщение:\n```{message}```")
-
 bot.run(TOKEN)
